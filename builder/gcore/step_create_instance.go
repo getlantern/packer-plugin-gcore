@@ -3,6 +3,7 @@ package gcore
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/hashicorp/packer-plugin-sdk/multistep"
 	"github.com/hashicorp/packer-plugin-sdk/packer"
@@ -70,10 +71,15 @@ func (s *StepCreateInstance) Run(ctx context.Context, state multistep.StateBag) 
 	state.Put("gcore_client", s.client)
 
 	// Find the boot volume ID for later image creation
-	if len(result.Volumes) > 0 {
-		state.Put("boot_volume_id", result.Volumes[0].ID)
-		ui.Say(fmt.Sprintf("Boot volume: %s", result.Volumes[0].ID))
+	if len(result.Volumes) == 0 {
+		err = fmt.Errorf("instance %s (%s) was created without any volumes; cannot determine boot volume", result.Name, result.ID)
+		state.Put("error", err)
+		ui.Error(err.Error())
+		return multistep.ActionHalt
 	}
+
+	state.Put("boot_volume_id", result.Volumes[0].ID)
+	ui.Say(fmt.Sprintf("Boot volume: %s", result.Volumes[0].ID))
 
 	return multistep.ActionContinue
 }
@@ -93,7 +99,10 @@ func (s *StepCreateInstance) Cleanup(state multistep.StateBag) {
 		DeleteFloatings: gcoresdk.Bool(true),
 	}
 
-	if err := s.client.Cloud.Instances.DeleteAndPoll(context.Background(), s.instance.ID, params); err != nil {
+	cleanupCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	if err := s.client.Cloud.Instances.DeleteAndPoll(cleanupCtx, s.instance.ID, params); err != nil {
 		ui.Error(fmt.Sprintf("Error destroying instance: %s", err))
 	} else {
 		ui.Say("Instance destroyed")

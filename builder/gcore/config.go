@@ -23,9 +23,6 @@ type Config struct {
 	FlavorID     string `mapstructure:"flavor_id" required:"true"`
 	ImageID      string `mapstructure:"source_image_id" required:"true"`
 	InstanceName string `mapstructure:"instance_name"`
-	NetworkID    string `mapstructure:"network_id"`
-	KeypairName  string `mapstructure:"keypair_name"`
-	UserData     string `mapstructure:"user_data"`
 
 	// Volume configuration
 	VolumeSize int    `mapstructure:"volume_size"`
